@@ -10,8 +10,8 @@ import (
 )
 
 type UserRepository struct {
-	store  *Storage           
-	filter *bloom.BloomFilter 
+	store  *Storage
+	filter *bloom.BloomFilter
 }
 
 func (r *UserRepository) Hydrate() error {
@@ -43,7 +43,7 @@ func (r *UserRepository) Create(u *models.User) error {
 	if r.filter.TestString(u.Username) {
 		return fmt.Errorf("username '%s' already exists", u.Username)
 	}
-	
+
 	if err := u.Validate(); err != nil {
 		return fmt.Errorf("user validation failed: %v", err)
 	}
@@ -51,7 +51,7 @@ func (r *UserRepository) Create(u *models.User) error {
 	if err := u.BeforeCreate(); err != nil {
 		return fmt.Errorf("failed to prepare user for creation: %v", err)
 	}
-	
+
 	err := r.store.DB.QueryRow(
 		"INSERT INTO users (username, encrypted_password) VALUES ($1, $2) RETURNING id",
 		u.Username,
@@ -61,18 +61,18 @@ func (r *UserRepository) Create(u *models.User) error {
 	if err != nil {
 		return fmt.Errorf("failed to create user in database: %v", err)
 	}
-	
+
 	r.filter.AddString(u.Username)
 	return nil
 }
 
 func (r *UserRepository) FindByUsername(username string) (*models.User, error) {
 	u := &models.User{}
-	
+
 	if !r.filter.TestString(username) {
 		return nil, fmt.Errorf("user with username '%s' not found", username)
 	}
-	
+
 	if err := r.store.DB.QueryRow(
 		"SELECT id, username, encrypted_password FROM users WHERE username = $1",
 		username,

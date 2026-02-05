@@ -1,6 +1,7 @@
 package e2e_test
 
 import (
+	"TextMeByte/internal/logger"
 	"TextMeByte/internal/models"
 	"TextMeByte/tests/e2e"
 	"fmt"
@@ -17,6 +18,8 @@ func TestE2E_UploadAndSendMessageWithAttachments(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping E2E test in short mode")
 	}
+
+	logger.InitLogger()
 
 	testServer, store, cleanup := e2e.SetupE2ETest(t)
 	defer cleanup()

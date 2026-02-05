@@ -17,12 +17,12 @@ func TestUserRepository_Create(t *testing.T) {
 	}{
 		{
 			name:    "uniq user",
-			u:       &models.User{Username: "testuser", Password: "StrongPassword"},
+			u:       &models.User{Username: "testuser", Password: "QG=8?rQ8v38*"},
 			isValid: true,
 		},
 		{
 			name:    "not uniq user",
-			u:       &models.User{Username: "testuser", Password: "StrongPassword"},
+			u:       &models.User{Username: "testuser", Password: "QG=8?rQ8v38*"},
 			isValid: false,
 		},
 	}
@@ -65,7 +65,7 @@ func TestUserRepository_Create(t *testing.T) {
 
 func TestUserRepository_FindByUsername(t *testing.T) {
 	testUsers := []models.User{
-		{ID: 1, Username: "alice", Password: "ENCPW"},
+		{ID: 1, Username: "alice", Password: "QG=8?rQ8v38*"},
 	}
 
 	db, mock, err := sqlmock.New()
@@ -83,26 +83,26 @@ func TestUserRepository_FindByUsername(t *testing.T) {
 		mock.ExpectQuery("INSERT INTO users").
 			WithArgs(tu.Username, sqlmock.AnyArg()).
 			WillReturnRows(rows)
-		
+
 		err := s.User().Create(&tu)
 		assert.NoError(t, err)
 	}
-	
+
 	t.Run("search for existing user", func(t *testing.T) {
 		expectedUser := testUsers[0]
 		encPass := "veryENCpass"
 		rows := sqlmock.NewRows([]string{"id", "username", "encryptedPassword"}).AddRow(expectedUser.ID, expectedUser.Username, encPass)
-		
+
 		mock.ExpectQuery("SELECT id, username, encrypted_password FROM users WHERE username =").
 			WithArgs(expectedUser.Username).
 			WillReturnRows(rows)
-		
+
 		u, err := s.User().FindByUsername(expectedUser.Username)
 		assert.NoError(t, err)
 		assert.NotNil(t, u)
 		assert.NoError(t, mock.ExpectationsWereMet())
 	})
-	
+
 	t.Run("search for a non existing user", func(t *testing.T) {
 		u, err := s.User().FindByUsername("lox")
 		assert.Error(t, err)

@@ -6,7 +6,7 @@ func TestUser(t *testing.T) *User {
 	t.Helper()
 
 	return &User{
-		Username: "testuser",   
-		Password: "JR3|DQjQ76", 
+		Username: "testuser",
+		Password: "QG=8?rQ8v38*",
 	}
 }
