@@ -16,10 +16,9 @@ var (
 )
 
 func main() {
+	logger.InitLogger()
 	cfg := config.NewConfig()
 	config.ParseConfig(cfg, configPath)
-
-	logger.InitLogger()
 
 	BindAddr = os.Getenv("BIND_ADDR")
 	DatabaseURL = os.Getenv("DATABASE_URL")

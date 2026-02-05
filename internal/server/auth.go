@@ -11,13 +11,14 @@ import (
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
+	"golang.org/x/time/rate"
 )
 
 var jwtKey = []byte(os.Getenv("SECRET_KEY"))
 
 type Claims struct {
-	UserID   int64  `json:"user_id"`  
-	Username string `json:"username"` 
+	UserID   int64  `json:"user_id"`
+	Username string `json:"username"`
 	jwt.RegisteredClaims
 }
 
@@ -25,17 +26,17 @@ func ValidateToken(tokenString string) (*Claims, error) {
 	claims := &Claims{}
 
 	token, err := jwt.ParseWithClaims(tokenString, claims, func(t *jwt.Token) (any, error) {
-		
+
 		if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, fmt.Errorf("unexpected signing method: %v", t.Header["alg"])
 		}
 		return jwtKey, nil
 	})
-	
+
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse token: %v", err)
 	}
-	
+
 	if !token.Valid {
 		return nil, fmt.Errorf("token is invalid")
 	}
@@ -65,6 +66,20 @@ func generateToken(userID int64, username string) (string, error) {
 	return tokenString, nil
 }
 
+func (s *server) getVisitorLimiter(ip string) *rate.Limiter {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	v, ok := s.limiters[ip]
+	if !ok {
+		limiter := rate.NewLimiter(rate.Every(1*time.Minute), 5)
+		s.limiters[ip] = limiter
+		return limiter
+	}
+
+	return v
+}
+
 func (s *server) authMiddleware(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		authHeader := r.Header.Get("Authorization")
@@ -73,7 +88,6 @@ func (s *server) authMiddleware(next http.HandlerFunc) http.HandlerFunc {
 			return
 		}
 
-		
 		tokenStr := strings.TrimPrefix(authHeader, "Bearer ")
 		if tokenStr == authHeader {
 			s.error(w, r, http.StatusUnauthorized, fmt.Errorf("invalid authorization header format"))
@@ -86,7 +100,6 @@ func (s *server) authMiddleware(next http.HandlerFunc) http.HandlerFunc {
 			return
 		}
 
-		
 		ctx := context.WithValue(r.Context(), ctxKeyUser, claims.Username)
 		next.ServeHTTP(w, r.WithContext(ctx))
 	}
@@ -116,7 +129,7 @@ func (s *server) handleUserCreate() http.HandlerFunc {
 		}
 
 		if err := s.store.User().Create(u); err != nil {
-			
+
 			if strings.Contains(err.Error(), "already exists") {
 				s.error(w, r, http.StatusConflict, fmt.Errorf("username already exists"))
 				return
@@ -126,7 +139,6 @@ func (s *server) handleUserCreate() http.HandlerFunc {
 			return
 		}
 
-		
 		token, err := generateToken(int64(u.ID), u.Username)
 		if err != nil {
 			s.logger.Errorf("Failed to generate token for user %s: %v", u.Username, err)
@@ -158,18 +170,18 @@ func (s *server) handleSessionCreate() http.HandlerFunc {
 			s.error(w, r, http.StatusBadRequest, fmt.Errorf("username and password are required"))
 			return
 		}
-		
+
 		u, err := s.store.User().FindByUsername(req.Username)
 		if err != nil {
 			s.error(w, r, http.StatusUnauthorized, fmt.Errorf("invalid username or password"))
 			return
 		}
-		
+
 		if !u.ComparePasswords(req.Password) {
 			s.error(w, r, http.StatusUnauthorized, fmt.Errorf("invalid username or password"))
 			return
 		}
-		
+
 		token, err := generateToken(int64(u.ID), u.Username)
 		if err != nil {
 			s.logger.Errorf("Failed to generate token for user %s: %v", u.Username, err)

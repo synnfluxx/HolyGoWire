@@ -24,5 +24,7 @@ func InitLogger() {
 		Log.SetLevel(logrus.ErrorLevel)
 		case "warn":
 		Log.SetLevel(logrus.WarnLevel)
-	}	
+	}
+
+	Log.Infof("Logger started with %s InfoLevel", Log.Level)
 }
