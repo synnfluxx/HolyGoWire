@@ -88,7 +88,7 @@ func (r *UserRepository) FindByUsername(username string) (*models.User, error) {
 	return u, nil
 }
 
-func (r *UserRepository) FindByUserID(userID int64) (*models.User, error) {
+func (r *UserRepository) FindByUserID(userID uint64) (*models.User, error) {
 	u := &models.User{}
 
 	if err := r.store.DB.QueryRow(
