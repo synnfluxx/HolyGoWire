@@ -87,3 +87,21 @@ func (r *UserRepository) FindByUsername(username string) (*models.User, error) {
 
 	return u, nil
 }
+
+func (r *UserRepository) FindByUserID(userID int64) (*models.User, error) {
+	u := &models.User{}
+
+	if err := r.store.DB.QueryRow(
+		"SELECT id, username, encrypted_password FROM users WHERE id = $1",
+		userID,
+	).Scan(
+		&u.ID, &u.Username, &u.EncryptedPassword,
+	); err != nil {
+		if err == sql.ErrNoRows {
+			return nil, fmt.Errorf("user wuth userID '%d' not found", userID)
+		}
+		return nil, fmt.Errorf("failed to query user by userID: %v", err)
+	}
+
+	return u, nil
+}

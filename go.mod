@@ -18,6 +18,7 @@ require (
 	github.com/gorilla/handlers v1.5.2
 	github.com/sirupsen/logrus v1.9.4
 	github.com/stretchr/testify v1.10.0
+	golang.org/x/time v0.14.0
 )
 
 require (

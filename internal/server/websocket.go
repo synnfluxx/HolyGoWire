@@ -10,19 +10,21 @@ import (
 	"strings"
 	"time"
 
+	"golang.org/x/time/rate"
+
 	"github.com/gorilla/websocket"
 )
 
 var upgrader = websocket.Upgrader{
-	CheckOrigin: func(r *http.Request) bool { return true }, 
+	CheckOrigin: func(r *http.Request) bool { return true },
 }
 
 type incomingMessage struct {
-	Text  string `json:"text"`           
-	Files []struct {                     
-		FilePath string `json:"filepath"` 
-		FileType string `json:"filetype"` 
-		FileSize int64  `json:"filesize"` 
+	Text  string `json:"text"`
+	Files []struct {
+		FilePath string `json:"filepath"`
+		FileType string `json:"filetype"`
+		FileSize int64  `json:"filesize"`
 	} `json:"files,omitempty"`
 }
 
@@ -31,7 +33,7 @@ func (s *server) HandleWS(hub *chat.Hub) http.HandlerFunc {
 		var username = ""
 		var isAuthorized bool
 		var userID int64 = 0
-		
+
 		token := r.URL.Query().Get("token")
 		if token == "" {
 			isAuthorized = false
@@ -54,11 +56,13 @@ func (s *server) HandleWS(hub *chat.Hub) http.HandlerFunc {
 			return
 		}
 
+		limiter := rate.NewLimiter(rate.Every(500*time.Millisecond), 7)
+
 		client := chat.NewClient(conn, isAuthorized, int(userID), username)
 		hub.Mu.Lock()
 		hub.Clients[client] = true
 		hub.Mu.Unlock()
-		
+
 		go client.WritePump()
 
 		defer func() {
@@ -74,7 +78,7 @@ func (s *server) HandleWS(hub *chat.Hub) http.HandlerFunc {
 			payload, _ := json.Marshal(v)
 			select {
 			case client.Send <- payload:
-				
+
 			case <-time.After(time.Millisecond * 50):
 				s.logger.Warnf("Client %s is slow to receive messages, dropping message", client.Name)
 			}
@@ -82,7 +86,6 @@ func (s *server) HandleWS(hub *chat.Hub) http.HandlerFunc {
 
 		historyMessages, err := hub.Store.Messages().LoadMessagesWithAttachments(time.Now().UTC(), 30)
 		if err == nil {
-			
 			for i, j := 0, len(historyMessages)-1; i < j; i, j = i+1, j-1 {
 				historyMessages[i], historyMessages[j] = historyMessages[j], historyMessages[i]
 			}
@@ -99,9 +102,17 @@ func (s *server) HandleWS(hub *chat.Hub) http.HandlerFunc {
 				if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
 					s.logger.Errorf("WebSocket unexpected close error for client %s: %v", username, err)
 				}
-				return 
+				return
 			}
-			
+
+			if !limiter.Allow() {
+				s.logger.Infof("RateLimit exeeded for user: %d", client.UserID)
+				sendToClient(map[string]string{
+					"type":    "error",
+					"message": "Too many requests. Slow Down!",
+				})
+			}
+
 			if !isAuthorized {
 				sendToClient(map[string]string{
 					"type":    "error",
@@ -152,18 +163,15 @@ func (s *server) HandleWS(hub *chat.Hub) http.HandlerFunc {
 	}
 }
 
-
-
 func (s *server) sendWebSocketError(conn *websocket.Conn, err error) {
 	errMessage := map[string]string{"error": err.Error()}
 	if writeErr := conn.WriteJSON(errMessage); writeErr != nil {
 		if strings.Contains(writeErr.Error(), "close sent") {
-			return 
+			return
 		}
 		s.logger.Errorf("Failed to send WebSocket error message: %v", writeErr)
 	}
 }
-
 
 func (s *server) HandleHistory(store *storage.Storage) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
