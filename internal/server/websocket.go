@@ -3,7 +3,6 @@ package server
 import (
 	"TextMeByte/internal/chat"
 	"TextMeByte/internal/models"
-	"TextMeByte/internal/storage"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -173,7 +172,7 @@ func (s *server) sendWebSocketError(conn *websocket.Conn, err error) {
 	}
 }
 
-func (s *server) HandleHistory(store *storage.Storage) http.HandlerFunc {
+func (s *server) HandleHistory(store models.Storage) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		beforeStr := r.URL.Query().Get("before")
 		if beforeStr == "" {

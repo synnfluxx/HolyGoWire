@@ -9,12 +9,12 @@ import (
 	"github.com/bits-and-blooms/bloom/v3"
 )
 
-type UserRepository struct {
+type userRepository struct {
 	store  *Storage
 	filter *bloom.BloomFilter
 }
 
-func (r *UserRepository) Hydrate() error {
+func (r *userRepository) Hydrate() error {
 	rows, err := r.store.DB.Query("SELECT username FROM users")
 	if err != nil {
 		return fmt.Errorf("failed to query usernames for bloom filter: %v", err)
@@ -39,7 +39,7 @@ func (r *UserRepository) Hydrate() error {
 	return nil
 }
 
-func (r *UserRepository) Create(u *models.User) error {
+func (r *userRepository) Create(u *models.User) error {
 	if r.filter.TestString(u.Username) {
 		return fmt.Errorf("username '%s' already exists", u.Username)
 	}
@@ -66,7 +66,7 @@ func (r *UserRepository) Create(u *models.User) error {
 	return nil
 }
 
-func (r *UserRepository) FindByUsername(username string) (*models.User, error) {
+func (r *userRepository) FindByUsername(username string) (*models.User, error) {
 	u := &models.User{}
 
 	if !r.filter.TestString(username) {
@@ -88,7 +88,7 @@ func (r *UserRepository) FindByUsername(username string) (*models.User, error) {
 	return u, nil
 }
 
-func (r *UserRepository) FindByUserID(userID uint64) (*models.User, error) {
+func (r *userRepository) FindByUserID(userID uint64) (*models.User, error) {
 	u := &models.User{}
 
 	if err := r.store.DB.QueryRow(

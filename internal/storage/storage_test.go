@@ -1,6 +1,7 @@
 package storage_test
 
 import (
+	"TextMeByte/internal/logger"
 	"TextMeByte/internal/storage"
 	"fmt"
 	"os"
@@ -15,6 +16,7 @@ var (
 )
 
 func TestMain(m *testing.M) {
+	logger.InitLogger()
 	data := make(map[string]any)
 
 	toml.DecodeFile("../../config/config.toml", &data)

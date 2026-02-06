@@ -147,7 +147,7 @@ func TestUserRepository_FindByUserID(t *testing.T) {
 			WithArgs(testusers[1].ID). // ID = 2
 			WillReturnError(sql.ErrNoRows)
 
-		u, err := store.UserRepository.FindByUserID(testusers[1].ID)
+		u, err := store.User().FindByUserID(testusers[1].ID)
 		assert.Error(t, err)
 		assert.NoError(t, mock.ExpectationsWereMet())
 		assert.Contains(t, err.Error(), "not found")

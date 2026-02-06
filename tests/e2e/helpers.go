@@ -21,10 +21,11 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
+	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
 )
 
-func SetupE2ETest(t *testing.T) (*httptest.Server, *storage.Storage, func()) {
+func SetupE2ETest(t *testing.T) (*httptest.Server, models.Storage, func()) {
 	testDB := "host=localhost dbname=wschat_dev sslmode=disable" // Hardcoded for test in prod mode
 	tmpDir := t.TempDir()
 	os.Setenv("UPLOADS_DIR", tmpDir)
@@ -40,7 +41,10 @@ func SetupE2ETest(t *testing.T) (*httptest.Server, *storage.Storage, func()) {
 	hub := chat.NewHub(store)
 	go hub.Run()
 
-	srv := server.NewServer(store, hub)
+	logger := logrus.New()
+	logger.SetLevel(logrus.DebugLevel)
+
+	srv := server.NewServer(store, hub, logger)
 	testServer := httptest.NewServer(srv)
 
 	cleanup := func() {
@@ -147,7 +151,7 @@ func ConnectWS(t *testing.T, wsURL string) *websocket.Conn {
 
 func SendWSMessage(t *testing.T, ws *websocket.Conn, msg any) {
 	var mu sync.Mutex
-	
+
 	mu.Lock()
 	err := ws.WriteJSON(msg)
 	mu.Unlock()

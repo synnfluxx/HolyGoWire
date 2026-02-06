@@ -91,7 +91,7 @@ func TestE2E_UploadAndSendMessageWithAttachments(t *testing.T) {
 	assert.Equal(t, mimetype, att["filetype"])
 
 	t.Log("Step 7: Verifying file in database")
-	messages, err := store.MessageRepository.LoadMessagesWithAttachments(time.Now().UTC().Add(time.Hour), 10)
+	messages, err := store.Messages().LoadMessagesWithAttachments(time.Now().UTC().Add(time.Hour), 10)
 	require.NoError(t, err)
 	require.NotEmpty(t, messages)
 

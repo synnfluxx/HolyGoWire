@@ -2,8 +2,7 @@ package server
 
 import (
 	"TextMeByte/internal/chat"
-	"TextMeByte/internal/logger"
-	"TextMeByte/internal/storage"
+	"TextMeByte/internal/models"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -29,16 +28,16 @@ type ctxKey int8
 
 type server struct {
 	router   *mux.Router
-	store    *storage.Storage
+	store    models.Storage
 	logger   *logrus.Logger
 	limiters map[string]*rate.Limiter
 	mu       sync.Mutex
 }
 
-func NewServer(store *storage.Storage, hub *chat.Hub) *server {
+func NewServer(store models.Storage, hub *chat.Hub, logger *logrus.Logger) *server {
 	s := &server{
 		router:   mux.NewRouter(),
-		logger:   logger.Log,
+		logger:   logger,
 		store:    store,
 		limiters: make(map[string]*rate.Limiter),
 	}
@@ -66,7 +65,7 @@ func (s *server) ConfigureRouter(hub *chat.Hub) {
 	limitedChain.Handle("/history", s.HandleHistory(s.store))
 	limitedChain.Handle("/upload", s.UploadHandler())
 	limitedChain.Handle("/download", s.DownloadHandler())
-	
+
 	s.router.Handle("/ws", s.HandleWS(hub))
 	s.router.Handle("/me", s.authMiddleware(s.handleMe()))
 }

@@ -31,7 +31,7 @@ func main() {
 	hub := chat.NewHub(store)
 	go hub.Run()
 
-	srv := server.NewServer(store, hub)
+	srv := server.NewServer(store, hub, logger.Log)
 
 	logger.Log.Infof("HolyGoWire server started successfully on %s", BindAddr)
 	logger.Log.Fatalf("Server failed to start: %v", http.ListenAndServe(BindAddr, srv))
