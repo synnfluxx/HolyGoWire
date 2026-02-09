@@ -27,7 +27,7 @@ type incomingMessage struct {
 	} `json:"files,omitempty"`
 }
 
-func (s *server) HandleWS(hub *chat.Hub) http.HandlerFunc {
+func (s *Server) HandleWS(hub *chat.Hub) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var username = ""
 		var isAuthorized bool
@@ -55,7 +55,7 @@ func (s *server) HandleWS(hub *chat.Hub) http.HandlerFunc {
 			return
 		}
 
-		limiter := rate.NewLimiter(rate.Every(500*time.Millisecond), 7)
+		limiter := rate.NewLimiter(rate.Every(time.Second), 7)
 
 		client := chat.NewClient(conn, isAuthorized, int(userID), username)
 		hub.Mu.Lock()
@@ -110,6 +110,7 @@ func (s *server) HandleWS(hub *chat.Hub) http.HandlerFunc {
 					"type":    "error",
 					"message": "Too many requests. Slow Down!",
 				})
+				continue
 			}
 
 			if !isAuthorized {
@@ -162,7 +163,7 @@ func (s *server) HandleWS(hub *chat.Hub) http.HandlerFunc {
 	}
 }
 
-func (s *server) sendWebSocketError(conn *websocket.Conn, err error) {
+func (s *Server) sendWebSocketError(conn *websocket.Conn, err error) {
 	errMessage := map[string]string{"error": err.Error()}
 	if writeErr := conn.WriteJSON(errMessage); writeErr != nil {
 		if strings.Contains(writeErr.Error(), "close sent") {
@@ -172,7 +173,7 @@ func (s *server) sendWebSocketError(conn *websocket.Conn, err error) {
 	}
 }
 
-func (s *server) HandleHistory(store models.Storage) http.HandlerFunc {
+func (s *Server) HandleHistory(store models.Storage) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		beforeStr := r.URL.Query().Get("before")
 		if beforeStr == "" {

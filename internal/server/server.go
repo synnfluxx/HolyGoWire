@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"os"
 	"strings"
 	"sync"
 	"time"
@@ -26,20 +27,22 @@ const (
 
 type ctxKey int8
 
-type server struct {
-	router   *mux.Router
+type Server struct {
+	Router   *mux.Router
 	store    models.Storage
 	logger   *logrus.Logger
 	limiters map[string]*rate.Limiter
 	mu       sync.Mutex
+	URL      string
 }
 
-func NewServer(store models.Storage, hub *chat.Hub, logger *logrus.Logger) *server {
-	s := &server{
-		router:   mux.NewRouter(),
+func NewServer(store models.Storage, hub *chat.Hub, logger *logrus.Logger) *Server {
+	s := &Server{
+		Router:   mux.NewRouter(),
 		logger:   logger,
 		store:    store,
 		limiters: make(map[string]*rate.Limiter),
+		URL: "http://localhost"+os.Getenv("BIND_ADDR")+"/",
 	}
 
 	s.ConfigureRouter(hub)
@@ -47,17 +50,17 @@ func NewServer(store models.Storage, hub *chat.Hub, logger *logrus.Logger) *serv
 	return s
 }
 
-func (s *server) ConfigureRouter(hub *chat.Hub) {
-	s.router.Use(s.setRequestID)
-	s.router.Use(s.setClientIP)
-	s.router.Use(s.logRequest)
-	s.router.Use(handlers.CORS(
+func (s *Server) ConfigureRouter(hub *chat.Hub) {
+	s.Router.Use(s.setRequestID)
+	s.Router.Use(s.setClientIP)
+	s.Router.Use(s.logRequest)
+	s.Router.Use(handlers.CORS(
 		handlers.AllowedOrigins([]string{"*"}),
 		handlers.AllowedMethods([]string{"GET", "POST", "PUT", "DELETE", "OPTIONS"}),
 		handlers.AllowedHeaders([]string{"Content-Type", "Authorization"}),
 	))
 
-	limitedChain := s.router.NewRoute().Subrouter()
+	limitedChain := s.Router.NewRoute().Subrouter()
 	limitedChain.Use(s.limitMiddlware)
 
 	limitedChain.Handle("/registration", s.handleUserCreate())
@@ -66,11 +69,11 @@ func (s *server) ConfigureRouter(hub *chat.Hub) {
 	limitedChain.Handle("/upload", s.UploadHandler())
 	limitedChain.Handle("/download", s.DownloadHandler())
 
-	s.router.Handle("/ws", s.HandleWS(hub))
-	s.router.Handle("/me", s.authMiddleware(s.handleMe()))
+	s.Router.Handle("/ws", s.HandleWS(hub))
+	s.Router.Handle("/me", s.authMiddleware(s.handleMe()))
 }
 
-func (s *server) setClientIP(next http.Handler) http.Handler {
+func (s *Server) setClientIP(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var clientIP string
 
@@ -90,7 +93,7 @@ func (s *server) setClientIP(next http.Handler) http.Handler {
 	})
 }
 
-func (s *server) limitMiddlware(next http.Handler) http.Handler {
+func (s *Server) limitMiddlware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		ip, ok := r.Context().Value("ip").(string)
 		if !ok || ip == "" {
@@ -107,11 +110,11 @@ func (s *server) limitMiddlware(next http.Handler) http.Handler {
 	})
 }
 
-func (s *server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	s.router.ServeHTTP(w, r)
+func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	s.Router.ServeHTTP(w, r)
 }
 
-func (s *server) setRequestID(next http.Handler) http.Handler {
+func (s *Server) setRequestID(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		id := uuid.New().String()
 		w.Header().Set("X-Request-ID", id)
@@ -119,9 +122,9 @@ func (s *server) setRequestID(next http.Handler) http.Handler {
 	})
 }
 
-func (s *server) logRequest(next http.Handler) http.Handler {
+func (s *Server) logRequest(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		logger := logrus.WithFields(logrus.Fields{
+		logger := s.logger.WithFields(logrus.Fields{
 			"remote_addr": r.RemoteAddr,
 			"request_id":  r.Context().Value(ctxKeyRequestedID),
 		})
@@ -151,7 +154,7 @@ func (s *server) logRequest(next http.Handler) http.Handler {
 	})
 }
 
-func (s *server) respond(w http.ResponseWriter, r *http.Request, statusCode int, data any) {
+func (s *Server) respond(w http.ResponseWriter, r *http.Request, statusCode int, data any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(statusCode)
 	if data != nil {
@@ -159,6 +162,6 @@ func (s *server) respond(w http.ResponseWriter, r *http.Request, statusCode int,
 	}
 }
 
-func (s *server) error(w http.ResponseWriter, r *http.Request, statusCode int, err error) {
+func (s *Server) error(w http.ResponseWriter, r *http.Request, statusCode int, err error) {
 	s.respond(w, r, statusCode, map[string]string{"error": err.Error()})
 }

@@ -22,6 +22,6 @@ type Storage interface {
 	Messages() MessagesRepository
 }
 
-type Hub interface{}
-
-type Logger interface{}
+type Hub interface{
+	Run()
+}

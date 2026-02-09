@@ -66,7 +66,7 @@ func generateToken(userID int64, username string) (string, error) {
 	return tokenString, nil
 }
 
-func (s *server) getVisitorLimiter(ip string) *rate.Limiter {
+func (s *Server) getVisitorLimiter(ip string) *rate.Limiter {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -80,7 +80,7 @@ func (s *server) getVisitorLimiter(ip string) *rate.Limiter {
 	return v
 }
 
-func (s *server) authMiddleware(next http.HandlerFunc) http.HandlerFunc {
+func (s *Server) authMiddleware(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		authHeader := r.Header.Get("Authorization")
 		if authHeader == "" {
@@ -105,7 +105,7 @@ func (s *server) authMiddleware(next http.HandlerFunc) http.HandlerFunc {
 	}
 }
 
-func (s *server) handleUserCreate() http.HandlerFunc {
+func (s *Server) handleUserCreate() http.HandlerFunc {
 	type request struct {
 		Username string `json:"username"`
 		Password string `json:"password"`
@@ -129,13 +129,12 @@ func (s *server) handleUserCreate() http.HandlerFunc {
 		}
 
 		if err := s.store.User().Create(u); err != nil {
-
 			if strings.Contains(err.Error(), "already exists") {
 				s.error(w, r, http.StatusConflict, fmt.Errorf("username already exists"))
 				return
 			}
 			s.logger.Errorf("Failed to create user: %v", err)
-			s.error(w, r, http.StatusInternalServerError, fmt.Errorf("failed to create user"))
+			s.error(w, r, http.StatusUnprocessableEntity, fmt.Errorf("failed to create user"))
 			return
 		}
 
@@ -153,7 +152,7 @@ func (s *server) handleUserCreate() http.HandlerFunc {
 	}
 }
 
-func (s *server) handleSessionCreate() http.HandlerFunc {
+func (s *Server) handleSessionCreate() http.HandlerFunc {
 	type request struct {
 		Username string `json:"username"`
 		Password string `json:"password"`
@@ -193,7 +192,7 @@ func (s *server) handleSessionCreate() http.HandlerFunc {
 	}
 }
 
-func (s *server) handleMe() http.HandlerFunc {
+func (s *Server) handleMe() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		username, ok := r.Context().Value(ctxKeyUser).(string)
 		if !ok {

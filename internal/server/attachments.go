@@ -10,15 +10,15 @@ import (
 	"time"
 )
 
-func (s *server) UploadHandler() http.HandlerFunc {
+func (s *Server) UploadHandler() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		
+
 		if err := r.ParseMultipartForm(50 << 20); err != nil {
 			s.logger.Errorf("Failed to parse multipart form: %v", err)
 			s.error(w, r, http.StatusBadRequest, fmt.Errorf("invalid multipart form data"))
 			return
 		}
-		
+
 		file, handler, err := r.FormFile("file")
 		if err != nil {
 			s.logger.Errorf("Failed to get file from form: %v", err)
@@ -37,7 +37,7 @@ func (s *server) UploadHandler() http.HandlerFunc {
 			s.error(w, r, http.StatusInternalServerError, fmt.Errorf("failed to process file"))
 			return
 		}
-		
+
 		if _, err := file.Seek(0, 0); err != nil {
 			s.logger.Errorf("Failed to reset file pointer: %v", err)
 			s.error(w, r, http.StatusInternalServerError, fmt.Errorf("failed to process file"))
@@ -64,7 +64,7 @@ func (s *server) UploadHandler() http.HandlerFunc {
 			return
 		}
 		defer dst.Close()
-		
+
 		bytesWritten, err := io.Copy(dst, file)
 		if err != nil {
 			s.logger.Errorf("Failed to copy file content: %v", err)
@@ -75,7 +75,7 @@ func (s *server) UploadHandler() http.HandlerFunc {
 		s.logger.Infof("File uploaded successfully: %s (%d bytes)", uniqueName, bytesWritten)
 
 		s.respond(w, r, http.StatusOK, map[string]any{
-			"url":      filepath.Join("uploads", uniqueName), 
+			"url":      filepath.Join("uploads", uniqueName),
 			"size":     handler.Size,
 			"mimetype": detectedType,
 			"filename": uniqueName,
@@ -84,7 +84,7 @@ func (s *server) UploadHandler() http.HandlerFunc {
 }
 
 
-func (s *server) DownloadHandler() http.HandlerFunc {
+func (s *Server) DownloadHandler() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		filename := r.URL.Query().Get("file")
 		if filename == "" {
@@ -107,7 +107,7 @@ func (s *server) DownloadHandler() http.HandlerFunc {
 		}
 
 		s.logger.Infof("Serving file: %s", filename)
-		
+
 		http.ServeFile(w, r, filePath)
 	}
 }
