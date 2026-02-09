@@ -78,7 +78,7 @@ func (s *Server) HandleWS(hub *chat.Hub) http.HandlerFunc {
 			select {
 			case client.Send <- payload:
 
-			case <-time.After(time.Millisecond * 50):
+			case <-time.After(time.Millisecond * 500):
 				s.logger.Warnf("Client %s is slow to receive messages, dropping message", client.Name)
 			}
 		}
@@ -131,9 +131,20 @@ func (s *Server) HandleWS(hub *chat.Hub) http.HandlerFunc {
 				continue
 			}
 
+			ip, _ := r.Context().Value("ip").(string)
 			msg := models.Message{
 				Username: username,
 				Content:  incoming.Text,
+				IP:       ip,
+			}
+
+			if err := msg.SetHashedIP(); err != nil {
+				s.logger.Errorf("Failed to set hashed IP for message from client %s: %v", username, err)
+				sendToClient(map[string]string{
+					"type":    "error",
+					"message": "Failed to process message IP",
+				})
+				continue
 			}
 
 			if len(incoming.Files) > 0 {

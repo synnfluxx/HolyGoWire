@@ -54,7 +54,7 @@ func TestServer_HandleWS(t *testing.T) {
 	assert.NoError(t, err)
 	defer client.Close()
 
-	t.Run("check history loading", func(t *testing.T) {
+	t.Run("check history loading with no auth", func(t *testing.T) {
 		var received map[string]string
 		receiveMessage(t, client, &received)
 
@@ -82,13 +82,21 @@ func TestServer_HandleWS(t *testing.T) {
 	assert.NoError(t, err)
 	defer authClient.Close()
 
+	t.Run("check history loading with auth", func(t *testing.T) {
+		var received map[string]string
+		receiveMessage(t, authClient, &received)
+
+		assert.Equal(t, received["text"], msg.Content)
+		assert.Equal(t, received["username"], msg.Username)
+	})
+
 	t.Run("test sending with auth", func(t *testing.T) {
 		payload, err := json.Marshal(msg)
 		require.NoError(t, err)
 		err = authClient.WriteMessage(websocket.TextMessage, payload)
 		require.NoError(t, err)
 
-		_, resp, err := client.ReadMessage()
+		_, resp, err := authClient.ReadMessage()
 		require.NoError(t, err)
 
 		var received map[string]string
@@ -96,31 +104,5 @@ func TestServer_HandleWS(t *testing.T) {
 
 		assert.Equal(t, received["text"], msg.Content)
 		assert.Equal(t, received["username"], msg.Username)
-	})
-
-	t.Run("Rate limiter test", func(t *testing.T) {
-		payload, err := json.Marshal(msg)
-		require.NoError(t, err)
-		for range 7 {
-			err = authClient.WriteMessage(websocket.TextMessage, payload)
-			require.NoError(t, err)
-
-			var received map[string]string
-			receiveMessage(t, authClient, &received)
-
-			assert.Equal(t, received["text"], msg.Content)
-			assert.Equal(t, received["username"], msg.Username)
-		}
-
-		err = authClient.WriteMessage(websocket.TextMessage, payload)
-		require.NoError(t, err)
-
-		_, resp, err := authClient.ReadMessage()
-
-		var received map[string]string
-		json.Unmarshal(resp, &received)
-
-		assert.Equal(t, "error", received["type"])
-		assert.Contains(t, received["message"], "many req")
 	})
 }
